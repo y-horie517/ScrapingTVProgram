@@ -12,7 +12,10 @@ LINE通知
 ![IMG_5430](https://user-images.githubusercontent.com/47136469/57586289-d8567180-752e-11e9-8b7b-1a574e3733d2.PNG)
 
 
-* Python 3.7.3
+* 環境
+  * Python 3.7.3
+  * requests(pip3 install requests でインストール)
+  * BeautifulSoup4(pip3 install beautifulsoup4でインストール)
 * コード内の  
   line_notify_token = "アクセストークン"  
   を取得したトークンで置き換えて実行
