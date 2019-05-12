@@ -2,27 +2,34 @@ import requests
 from bs4 import BeautifulSoup
 import sys
 from time import sleep
+import datetime
 
-query = "乃木坂" #検索ワード
-url = "https://tv.yahoo.co.jp/search/?q="+query+"&t=1%202%203&a=23&oa=1&s=1" #地上波、BS、CS　地域設定：東京
+# 定期ジョブにする場合はキーワード決め打ちにする
+print('番組検索キーワードを入力してください')
+query = input('>> ') #検索ワード
+url = "https://tv.yahoo.co.jp/search/?q="+format(query)+"&t=1%202%203&a=23&oa=1&s=1" #地上波、BS、CS　地域設定：東京
 res = requests.get(url)
 status = res.status_code
 
+# ライン通知メソッド
+def LineNotify(message):
+    line_notify_token = "アクセストークン"
+    line_notify_api = "https://notify-api.line.me/api/notify"
+    payload = {"message": message}
+    headers = {"Authorization": "Bearer " + line_notify_token}
+    requests.post(line_notify_api, data=payload, headers=headers)
+
+# ファイルがなければ空のファイル作成
+f = open('program_log.txt', 'a')
+f.close
+
 #Requestsのステータスコードが200以外ならばLINEに通知して終了
 if status != 200:
-    def LineNotify(message):
-        line_notify_token = "アクセストークン"
-        line_notify_api = "https://notify-api.line.me/api/notify"
-        payload = {"message": message}
-        headers = {"Authorization": "Bearer " + line_notify_token}
-        requests.post(line_notify_api, data=payload, headers=headers)
-
     message = "アクセスに失敗しました"
     LineNotify(message)
     # プログラム終了
     sys.exit()
-
-#ステータスコードが200ならば処理継続
+#200ならば処理継続
 else:
     pass
 
@@ -33,13 +40,14 @@ p = soup.find("p",class_="floatl pt5p")
 #検索数が0ならば処理終了
 if p == None:
     sys.exit()  #以降の処理には進まず終了
-
-#検索数が1以上ならば処理継続
+#1以上ならば処理継続
 else:
     pass
 
 answer = int(p.em.text) #検索数
-print(answer + '件の番組がヒットしました')
+# ファイルへのの書き込み用変数に代入
+num_answer = answer
+print(str(num_answer) + '件の番組がヒットしました')
 
 page = 1          #最初のページ数を指定
 datelist = []     #放送日時用リスト
@@ -73,14 +81,14 @@ while answer > 0:
     answer = answer - 10
 
     # 負荷軽減のため
-    sleep(3)
+    # sleep(3)
 
 #datelist～programlistから放送日時＋放送局＋番組タイトルをまとめたlist_newの作成
 list_new = [x +" "+ y for (x , y) in zip(datelist,channellist)]
 list_new = [x +" "+ y for (x , y) in zip(list_new,programlist)]
 
 #テキストファイルから前回のデータを集合として展開する
-f = open('hogehoge.txt','r')    #ファイル読み込み
+f = open('program_log.txt','r')    #ファイル読み込み
 f_old = f.read()
 list_old = f_old.splitlines()   #文字列を改行ごとにリスト化
 set_old = set(list_old)         #リストを集合に変換
@@ -89,28 +97,41 @@ f.close()                       # ファイルを閉じる
 #前回のデータと今回のデータの差集合をとる
 set_new = set(list_new)
 set_dif = set_new - set_old
- 
+
 #差集合がなければ処理終了
 if len(set_dif) == 0:
+    print('新しい番組情報はありませんでした')
     sys.exit()  #以降の処理には進まず終了
- 
+
 #差集合があればリストとして取り出してLINEに通知する
 else:
     list_now = list(set_dif)
     list_now.sort()
- 
+    nowquantity = len(list_now)
+    print('このうち取得済みでない番組' + str(nowquantity) + '件の通知を行います')
+
+    i = 1
     for L in list_now:
-        def LineNotify(message):
-            line_notify_token = "アクセストークン"
-            line_notify_api = "https://notify-api.line.me/api/notify"
-            payload = {"message": message}
-            headers = {"Authorization": "Bearer " + line_notify_token}
-            requests.post(line_notify_api, data=payload, headers=headers)
-        message = "新しい番組情報です\n\n" + L
+        message = "番組情報[キーワード：" + query + "]\n\n" + L
         LineNotify(message)
-        sleep(3)
- 
-f = open('hogehoge.txt', 'w')   # 書き込みモードで開く
+        #進捗表示(1行に表示される)
+        sys.stdout.write('\r' + str(i) + ' / ' + str(nowquantity))
+        sys.stdout.flush()
+        sleep(0.1)
+        i += 1
+        # サーバ負荷を軽減するため
+        # sleep(3)
+
+f = open('program_log.txt', 'a')   # 書き込みモードで開く
+f.write('検索ワード: ' + query + '   ヒット数: ' + str(num_answer) + "\n")
+# 実行時間
+dt_now = datetime.datetime.now()
+f.write('実行日時：')
+f.write(dt_now.strftime('%Y年%m月%d日 %H:%M:%S\n'))
+
 for x in list_new:
     f.write(str(x)+"\n")    #list_newを文字列に変換＆改行してファイル書き込み
-f.close()   # ファイルを閉じる
+f.write("\n")
+f.close()
+
+print('\n通知が完了しました')
