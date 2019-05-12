@@ -7,7 +7,7 @@ query = "乃木坂" #検索ワード
 url = "https://tv.yahoo.co.jp/search/?q="+query+"&t=1%202%203&a=23&oa=1&s=1" #地上波、BS、CS　地域設定：東京
 res = requests.get(url)
 status = res.status_code
- 
+
 #Requestsのステータスコードが200以外ならばLINEに通知して終了
 if status != 200:
     def LineNotify(message):
@@ -16,8 +16,10 @@ if status != 200:
         payload = {"message": message}
         headers = {"Authorization": "Bearer " + line_notify_token}
         requests.post(line_notify_api, data=payload, headers=headers)
+
     message = "アクセスに失敗しました"
     LineNotify(message)
+    # プログラム終了
     sys.exit()
 
 #ステータスコードが200ならば処理継続
@@ -37,10 +39,12 @@ else:
     pass
 
 answer = int(p.em.text) #検索数
-page = 1
-list1 = []  #放送日時用リスト
-list2 = []  #放送局用リスト
-list3 = []  #番組タイトル用リスト
+print(answer + '件の番組がヒットしました')
+
+page = 1          #最初のページ数を指定
+datelist = []     #放送日時用リスト
+channellist = []  #放送局用リスト
+programlist = []  #番組タイトル用リスト
 
 #検索数からページごとに情報取得を繰り返す処理
 while answer > 0:
@@ -52,27 +56,28 @@ while answer > 0:
     for date in dates:
         d = date.text
         d = ''.join(d.splitlines())
-        list1.append(d)
+        datelist.append(d)
 
     for s in soup("span",class_="floatl"):
         s.decompose()
     tvs = soup.find_all("span",class_="pr35")
     for tv in tvs:
-        list2.append(tv.text)
+        channellist.append(tv.text)
 
     titles = soup.find_all("div",class_="rightarea")
     for title in titles:
         t = title.a.text
-        list3.append(t)
+        programlist.append(t)
 
     page = page + 10
     answer = answer - 10
 
+    # 負荷軽減のため
     sleep(3)
 
-#list1～list3から放送日時＋放送局＋番組タイトルをまとめたlist_newの作成
-list_new = [x +" "+ y for (x , y) in zip(list1,list2)]
-list_new = [x +" "+ y for (x , y) in zip(list_new,list3)]
+#datelist～programlistから放送日時＋放送局＋番組タイトルをまとめたlist_newの作成
+list_new = [x +" "+ y for (x , y) in zip(datelist,channellist)]
+list_new = [x +" "+ y for (x , y) in zip(list_new,programlist)]
 
 #テキストファイルから前回のデータを集合として展開する
 f = open('hogehoge.txt','r')    #ファイル読み込み
